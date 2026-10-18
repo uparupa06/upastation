@@ -1,6 +1,7 @@
 #include "gpu.hpp"
 
 // For my own organisation, I am just commenting the section of the docs I have used
+// The above never happened
 
 // Command decoder
 void GPU::receive_command(uint32_t value) {

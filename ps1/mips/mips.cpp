@@ -546,10 +546,10 @@ void MIPS::execute_lwr(const Instruction& instruction) {
 		dst = src | (dst & 0xFFFF0000);
 		break;
 	case 1: // 3-byte read
-		src = read16(effective_address);
-		dst = src | (dst & 0xFFFF0000);
-		src = read8(effective_address + 2);
-		dst = (src << 16)  | (dst & 0xFF00FFFF);
+		src = read8(effective_address);
+		dst = src | (dst & 0xFFFFFF00);
+		src = read16(effective_address + 1);
+		dst = (src << 8)  | (dst & 0xFF0000FF);
 		break;
 	case 0: // 4-byte read
 		src = read32(effective_address);
@@ -777,8 +777,8 @@ void MIPS::execute_swr(const Instruction& instruction) {
 		write16(effective_address, src & 0xFFFF);
 		break;
 	case 1:
-		write16(effective_address, src & 0xFFFF);
-		write8(effective_address + 2, (src & 0x00FF0000) >> 16);
+		write8(effective_address, src & 0xFF);
+		write16(effective_address + 1, (src >> 8) & 0xFFFF);
 		break;
 	case 0:
 		write32(effective_address, src);
