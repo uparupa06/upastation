@@ -15,8 +15,21 @@ void GPU::receive_command(uint32_t value) {
 	// Rendering attribute commands (INCOMPLETE)
 	switch (value >> 24) {
 		case 0xE1:
+			TBX = (value & 0xF) * 64;
+			TBY = ((value >> 4) & 1) * 256;
+			ABR = (value >> 5) & 3;
+			TPF = (value >> 7) & 3;
+			DTD = (value >> 9) & 1;
+			DFE = (value >> 10) & 1;
+			TBY2 = ((value >> 11) & 1) * 512;
+			IX = (value >> 12) & 1;
+			IY = (value >> 13) & 1;
 			return;
 		case 0xE2:
+			texture_window_mask_x = value & 0x1F;
+			texture_window_mask_y = (value >> 5) & 0x1F;
+			texture_window_offset_x = (value >> 10) & 0x1F;
+			texture_window_offset_y = (value >> 15) & 0x1F;
 			return;
 		case 0xE6: 
 			PBW = (value & 1);
@@ -25,12 +38,36 @@ void GPU::receive_command(uint32_t value) {
 
 		// SPECIAL-CASING THESE AS THEY HAVE BIZARRE FIFO BEHAVIOUR
 		case 0xE3:
-			break;
+			drawing_area_top_left_x = value & 0x1FF;
+			drawing_area_top_left_y = (value >> 10) & 0x1FF;
+			return;
 		case 0xE4:
-			break;
+			drawing_area_bottom_right_x = value & 0x1FF;
+			drawing_area_bottom_right_y = (value >> 10) & 0x1FF;
+			return;
 		case 0xE5:
+			// SHOULD BE CORRECT, DOUBLE CHECK!!
+			drawing_x_offset = static_cast<int16_t>((value & 0x7FF) | 0xF800);
+			drawing_y_offset = static_cast<int16_t>(((value >> 11) & 0x7FF) | 0xF800);
 			break;
 	}
+
+	switch (value >> 29) {
+		case 3:
+			receive_rectangle(value);
+			break;
+	}
+}
+
+void GPU::receive_rectangle(uint32_t value) {
+	rectangle.r = value & 0xFF;
+	rectangle.g = (value >> 8) & 0xFF;
+	rectangle.b = (value >> 16) & 0xFF;
+	rectangle.TGE  = (value >> 24) & 1;
+	rectangle.ABE  = (value >> 25) & 1;
+	rectangle.TME  = (value >> 26) & 1;
+	rectangle.size = (value >> 27) & 3;
+	gpu_state = GPUState::Rectangle_Vertex1;
 }
 
 void GPU::blit_cpu_vram(uint16_t pixel) {
@@ -165,6 +202,43 @@ void GPU::gp0_write(uint32_t value) {
 		case GPUState::VRAM_CPU_Width_Height:
 		case GPUState::VRAM_CPU_Data:
 			blit_command(value);
+			break;
+		case GPUState::Rectangle_Vertex1:
+		case GPUState::Rectangle_UV:
+		case GPUState::Rectangle_Width_Height:
+			handle_rectangle(value);
+			break;
+	}
+}
+
+void GPU::handle_rectangle(uint32_t value) {
+	switch (gpu_state) {
+		case GPUState::Rectangle_Vertex1:
+			rectangle.upper_left_x = value & 0xFFFF;
+			rectangle.upper_left_y = (value >> 16);
+			if (rectangle.TGE) {
+				gpu_state = GPUState::Rectangle_UV;
+			} else if (rectangle.size == 0) {
+				gpu_state = GPUState::Rectangle_Width_Height;
+			} else {
+				draw_rectangle();
+				gpu_state = GPUState::Idle;
+			}
+			break;
+		case GPUState::Rectangle_UV:
+			// INCOMPLETE, HANDLE UV HERE
+			if (rectangle.size == 0) {
+				gpu_state = GPUState::Rectangle_Width_Height;
+			} else {
+				draw_rectangle();
+				gpu_state = GPUState::Idle;
+			}
+			break;
+		case GPUState::Rectangle_Width_Height:
+			rectangle.width  = value & 0x3FF;
+			rectangle.height = (value >> 16) & 0x1FF;
+			draw_rectangle();
+			gpu_state = GPUState::Idle;
 			break;
 	}
 }

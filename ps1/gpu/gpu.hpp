@@ -35,17 +35,25 @@ public:
 	}
 
 	// gpu_display.cpp
+	uint8_t convert_to_8bit(uint8_t value);
+	uint32_t convert_to_rgba(uint16_t colour);
+	std::vector<uint32_t> vram_framebuffer();
 	void update_vram_viewer();
 	void create_window();
 	void close_window();
 	void sdl_loop();
 
+	// gpu_rasterise.cpp
+	void draw_rectangle();
+
 	// gpu.cpp
 	void receive_command(uint32_t value);
-
 	void blit_cpu_vram(uint16_t value);
 	uint16_t blit_vram_cpu();
 	void blit_command(uint32_t value);
+
+	void receive_rectangle(uint32_t value);
+	void handle_rectangle(uint32_t value);
 
 	uint32_t gp0_read();
 	void gp0_write(uint32_t value);
@@ -57,7 +65,7 @@ public:
 	void gp1_write(uint32_t value);
 
 	bool window_closed() {
-		return main_window_closed && vram_viewer_closed;
+		return main_window_closed || vram_viewer_closed;
 	}
 
 private:
@@ -67,9 +75,22 @@ private:
 	GPUState gpu_state = GPUState::Idle;
 	Blitting blit;
 
+	// Rendering buffers
+	Rectangle rectangle;
+
 	bool gp1_bypass = false;
 	uint32_t gp1_bypass_value;
 
+
+	// Rendering Attributes
+
+	uint32_t TBX, TBY, ABR, TPF, TBY2;
+	bool DTD, DFE, IX, IY;
+	uint8_t texture_window_mask_x, texture_window_mask_y;
+	uint8_t texture_window_offset_x, texture_window_offset_y;
+	uint16_t drawing_area_top_left_x, drawing_area_top_left_y;
+	uint16_t drawing_area_bottom_right_x, drawing_area_bottom_right_y;
+	int16_t drawing_x_offset, drawing_y_offset;
 	bool PBW = false; // if on, force bit 1 for writes and transfers
 	bool PBC = false; // if on, only draw if bit 15 of the old pixel is 0
 

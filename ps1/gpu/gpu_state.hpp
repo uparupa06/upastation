@@ -3,6 +3,13 @@
 enum GPUState {
 	Idle,
 
+	// Rendering commands
+
+	// Rectangle
+	Rectangle_Vertex1,
+	Rectangle_UV,
+	Rectangle_Width_Height,
+
 	// Blitting commands
 
 	// VRAM-VRAM
@@ -38,4 +45,16 @@ struct Blitting {
 	Size size;
 	int counter; // Using this to track progress with the transfers
 	int x, y;
+};
+
+struct Rectangle {
+	uint8_t r, g, b;
+	bool TGE, ABE, TME;
+	uint8_t size;
+
+	uint16_t width, height;
+
+	uint16_t upper_left_x, upper_left_y;
+
+	// TEXTURE STUFF NOT YET ADDED
 };

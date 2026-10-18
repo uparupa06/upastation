@@ -22,6 +22,7 @@ add_executable(upastation
     ps1/gpu/gpu_display.cpp
     ps1/gpu/gpu.hpp
     ps1/gpu/gpu_state.hpp
+    ps1/gpu/gpu_rasterise.cpp
 
     ps1/main/main.cpp
 
