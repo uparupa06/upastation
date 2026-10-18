@@ -9,7 +9,7 @@ uint32_t GPU::convert_to_rgba(uint16_t pixel) {
 	uint8_t g = convert_to_8bit((pixel >> 5) & 0x1F);
 	uint8_t b = convert_to_8bit((pixel >> 10) & 0x1F);
 
-	return (0xFF000000) | (b << 16) | (g << 8) | r;
+	return (r << 24) | (g << 16) | (b << 8) | 0xFF;
 }
 
 std::vector<uint32_t> GPU::vram_framebuffer() {
