@@ -136,8 +136,8 @@ void GPU::blit_command(uint32_t value) {
 			gpu_state = GPUState::CPU_VRAM_Width_Height;
 			break;
 		case GPUState::CPU_VRAM_Width_Height:
-			blit.size.width  = ((value & 0x3FF) - 1 & 0x3FF) + 1;
-			blit.size.height = (((value >> 16) & 0x1FF) - 1 & 0x1FF) + 1;
+			blit.size.width  = value & 0x3FF;
+			blit.size.height = (value >> 16) & 0x1FF;
 			blit.counter = blit.size.width * blit.size.height;
 			gpu_state = GPUState::CPU_VRAM_Data;
 			break;
