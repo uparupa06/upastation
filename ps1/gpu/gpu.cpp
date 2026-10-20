@@ -13,16 +13,16 @@ void GPU::receive_command(uint32_t value) {
 		case 0b110: gpu_state = GPUState::VRAM_CPU_Source_Coord; return;
 	}
 
-	// Rendering attribute commands (INCOMPLETE)
+	// Rendering attributgp1_read(e commands (INCOMPLETE)
 	switch (value >> 24) {
 		case 0xE1:
-			TBX = (value & 0xF) * 64;
-			TBY = ((value >> 4) & 1) * 256;
+			TBX = (value & 0xF);
+			TBY = ((value >> 4) & 1);
 			ABR = (value >> 5) & 3;
 			TPF = (value >> 7) & 3;
 			DTD = (value >> 9) & 1;
 			DFE = (value >> 10) & 1;
-			TBY2 = ((value >> 11) & 1) * 512;
+			TBY2 = ((value >> 11) & 1);
 			IX = (value >> 12) & 1;
 			IY = (value >> 13) & 1;
 			return;
@@ -51,6 +51,11 @@ void GPU::receive_command(uint32_t value) {
 			drawing_x_offset = static_cast<int16_t>((value & 0x7FF) | 0xF800);
 			drawing_y_offset = static_cast<int16_t>(((value >> 11) & 0x7FF) | 0xF800);
 			break;
+
+		// Drawing commands (quick rectangle fill)
+		case 0x02:
+			receive_quick_rectangle(value);
+			break;
 	}
 
 	switch (value >> 29) {
@@ -71,50 +76,48 @@ void GPU::receive_rectangle(uint32_t value) {
 	gpu_state = GPUState::Rectangle_Vertex1;
 }
 
+void GPU::receive_quick_rectangle(uint32_t value) {
+	quick_rectangle.r = value & 0xFF;
+	quick_rectangle.g = (value >> 8) & 0xFF;
+	quick_rectangle.b = (value >> 16) & 0xFF;
+	gpu_state = GPUState::Quick_Rectangle_TopLeftCorner;
+}
+
 void GPU::blit_cpu_vram(uint16_t pixel) {
-	std::cout << "CPU-VRAM BLIT\n";
-	if (blit.counter > 0) {
-		if (PBW) {
-			pixel |= 0x8000;
-		}
-		if (!PBC || !(vram[blit.y][blit.x] & 0x8000)) {
-			vram[blit.y][blit.x] = pixel;
-		}
+	//std::cout << "CPU-VRAM BLIT\n";
+	if (blit.counter == 0) {
+		return;
 	}
 
+	uint32_t px = blit.x & 0x3FF;
+	uint32_t py = blit.y & 0x1FF;
+
+	if (PBW) pixel |= 0x8000;
+	if (!PBC || !(vram[py][px] & 0x8000)) {
+		vram[py][px] = pixel;
+	}
+
+	blit.counter--;
 	blit.x++;
+
 	if (blit.x == blit.dest.x + blit.size.width) {
+		blit.x = blit.dest.x;
 		blit.y++;
-	}
-	if (blit.y == blit.dest.y + blit.size.height) {
-		blit.y = blit.dest.y;
-	}
-	if (blit.counter > 0) {
-		blit.counter--;
-	} else {
-		gpu_state = GPUState::Idle;
 	}
 }
 
 uint16_t GPU::blit_vram_cpu() {
-	std::cout << "VRAM-CPU BLIT\n";
-	uint16_t data = 0x00;
-	if (blit.counter > 0) {
-		data = vram[blit.y][blit.x];
+	if (blit.counter == 0) {
+		return 0;
 	}
 
+	uint16_t data = vram[blit.y & 0x1FF][blit.x & 0x3FF];
+
+	blit.counter--;
 	blit.x++;
 	if (blit.x == blit.src.x + blit.size.width) {
+		blit.x = blit.src.x;
 		blit.y++;
-	}
-	if (blit.y == blit.src.y + blit.size.height) {
-		blit.y = blit.src.y;
-	}
-	if (blit.counter > 0) {
-		blit.counter--;
-	} else {
-		clear_gp1_bit(27);
-		gpu_state = GPUState::Idle;
 	}
 
 	return data;
@@ -133,19 +136,24 @@ void GPU::blit_command(uint32_t value) {
 			gpu_state = GPUState::CPU_VRAM_Width_Height;
 			break;
 		case GPUState::CPU_VRAM_Width_Height:
-			blit.size.width  = (value & 0x3FF);
-			blit.size.height = ((value >> 16) & 0x1FF);
+			blit.size.width  = ((value & 0x3FF) - 1 & 0x3FF) + 1;
+			blit.size.height = (((value >> 16) & 0x1FF) - 1 & 0x1FF) + 1;
 			blit.counter = blit.size.width * blit.size.height;
 			gpu_state = GPUState::CPU_VRAM_Data;
 			break;
 		case GPUState::CPU_VRAM_Data:
 			blit_cpu_vram(value & 0xFFFF);
-			blit_cpu_vram(value >> 16);
-			update_vram_viewer();
+			if (blit.counter > 0) {
+				blit_cpu_vram(value >> 16);
+			}
+			if (blit.counter == 0) {
+				std::cout << "CPU-VRAM\n";
+				gpu_state = GPUState::Idle;
+				update_vram_viewer();
+			}
 			break;
 
 		case GPUState::VRAM_CPU_Source_Coord:
-			set_gp1_bit(27);
 			blit.src.x = (value & 0x3FF);
 			blit.src.y = ((value >> 16) & 0x1FF);
 			blit.x = blit.src.x;
@@ -153,13 +161,36 @@ void GPU::blit_command(uint32_t value) {
 			gpu_state = GPUState::VRAM_CPU_Width_Height;
 			break;
 		case GPUState::VRAM_CPU_Width_Height:
-			blit.size.width  = (value & 0x3FF);
-			blit.size.height = ((value >> 16) & 0x1FF);
+			set_gp1_bit(27);
+			blit.size.width  = ((value & 0x3FF) - 1 & 0x3FF) + 1;
+			blit.size.height = (((value >> 16) & 0x1FF) - 1 & 0x1FF) + 1;
 			blit.counter = blit.size.width * blit.size.height;
 			gpu_state = GPUState::VRAM_CPU_Data;
 			break;
 		case GPUState::VRAM_CPU_Data:
 			// CARRIED OUT AS GP0 READS
+			break;
+
+		case GPUState::VRAM_VRAM_Source_Coord:
+			blit.src.x = value & 0x3FF;
+			blit.src.y = (value >> 16) & 0x1FF;
+			gpu_state = GPUState::VRAM_VRAM_Destination_Coord;
+			break;
+		case GPUState::VRAM_VRAM_Destination_Coord:
+			blit.dest.x = value & 0x3FF;
+			blit.dest.y = (value >> 16) & 0x1FF;
+			gpu_state = GPUState::VRAM_VRAM_Width_Height;
+			break;
+		case GPUState::VRAM_VRAM_Width_Height:
+			std::cout << "VRAM-VRAM\n";
+			int w = ((value & 0x3FF) - 1 & 0x3FF) + 1;
+			int h = (((value >> 16) & 0x1FF) - 1 & 0x1FF) + 1;
+			for (int y = 0; y < h; y++) {
+				for (int x = 0; x < w; x++) {
+					vram[(blit.dest.y + y) & 0x1FF][(blit.dest.x + x) & 0x3FF] = vram[(blit.src.y + y) & 0x1FF][(blit.src.x + x) & 0x3FF];
+				}
+			}
+			gpu_state = GPUState::Idle;
 			break;
 
 		// VRAM-to-CPU
@@ -174,19 +205,24 @@ uint32_t GPU::gp0_read() {
 		gp1_bypass = false;
 		return gp1_bypass_value;
 	}
-	switch (gpu_state) {
-		case GPUState::VRAM_CPU_Data: {
-			uint32_t data = (blit_vram_cpu() << 16);
-			data |= blit_vram_cpu();
-			return data;
-			break;
-		}
-		default:
-			return 0x00;
+
+	if (gpu_state != GPUState::VRAM_CPU_Data) {
+		return 0x00;
 	}
+	
+	uint32_t data = blit_vram_cpu();
+	data |= (uint32_t)(blit_vram_cpu()) << 16;
+	
+	if (blit.counter == 0) {
+		clear_gp1_bit(27);
+		gpu_state = GPUState::Idle;
+	}
+
+	return data;
 }
 
 void GPU::gp0_write(uint32_t value) {
+	//std::cout << "GP0 WRITE " << std::hex << (int)value << "\n";;
 	switch (gpu_state) {
 		case GPUState::Idle:
 			receive_command(value);
@@ -208,6 +244,10 @@ void GPU::gp0_write(uint32_t value) {
 		case GPUState::Rectangle_UV:
 		case GPUState::Rectangle_Width_Height:
 			handle_rectangle(value);
+			break;
+		case GPUState::Quick_Rectangle_TopLeftCorner:
+		case GPUState::Quick_Rectangle_WidthHeight:
+			handle_quick_rectangle(value);
 			break;
 	}
 }
@@ -244,10 +284,51 @@ void GPU::handle_rectangle(uint32_t value) {
 	}
 }
 
+void GPU::handle_quick_rectangle(uint32_t value) {
+	switch (gpu_state) {
+		case GPUState::Quick_Rectangle_TopLeftCorner:
+			quick_rectangle.x = value & 0xFFFF;
+			quick_rectangle.y = (value >> 16) & 0xFFFF;
+			gpu_state = GPUState::Quick_Rectangle_WidthHeight;
+			break;
+		case GPUState::Quick_Rectangle_WidthHeight:
+			quick_rectangle.width  = value & 0xFFFF;
+			quick_rectangle.height = (value >> 16) & 0xFFFF;
+			draw_quick_rectangle();
+			gpu_state = GPUState::Idle;
+			break;
+	}
+}
+
 // GP1
 
 void GPU::set_gp1(uint32_t value) {
-	gp1 = value;
+	// TO DO
+	TBX = value & 15;
+	TBY = (value >> 4) & 1;
+	ABR = (value >> 5) & 3;
+	TPF = (value >> 7) & 3;
+	DTD = (value >> 9) & 1;
+	DFE = (value >> 10) & 1;
+	PBW = (value >> 11) & 1;
+	PBC = (value >> 12) & 1;
+	//ODE2 = (value >> 13) & 1;
+	REV = (value >> 14) & 1;
+	TBY2 = (value >> 15) & 1;
+	HDS2 = (value >> 16) & 1;
+	HDS = (value >> 17) & 3;
+	VDS = (value >> 19) & 1;
+	NPB = (value >> 20) & 1;
+	LBS = (value >> 21) & 1;
+	IRS = (value >> 22) & 1;
+	DMSK = (value >> 23) & 1;
+	IRQ = (value >> 24) & 1;
+	// DREQ
+	IDLE = (value >> 26) & 1;
+	RFFL = (value >> 27) & 1;
+	WFEP = (value >> 28) & 1;
+	DMD = (value >> 29) & 3;
+	ODE = (value >> 31) & 1;
 }
 
 void GPU::set_gp1_bit(int bit) {
@@ -258,22 +339,67 @@ void GPU::clear_gp1_bit(int bit) {
 	gp1 &= ~(1u << bit);
 }
 
+bool GPU::DREQ() {
+	switch (DMD) {
+	case 0:
+		return false;
+	case 1:
+		return true; // TEMPORARY SOLUTION
+	case 2:
+		return WFEP;
+	case 3:
+		return RFFL;
+	default:
+		return false;
+	}
+}
+
 uint32_t GPU::gp1_read() {
-	//std::cout << "GP1 READ\n";
-	//return 0x5E800000; // MAGIC NUMBER (REMOVE WHEN THIS FEATURE HAS BEEN WRITTEN)
-	return gp1;
+	std::cout << "GP1 READ\n";
+	return 0x5E800000; // MAGIC NUMBER (REMOVE WHEN THIS FEATURE HAS BEEN WRITTEN)
+	/*gp1 =  (TBX << 0)   | (TBY << 4)  | (ABR  << 5)  | (TPF  << 7)  | (DTD  << 9)  | (DFE << 10)  |
+	       (PBW << 11)  | (PBC << 12) | (~IRS << 13) | (REV  << 14) | (TBY2 << 15) | (HDS2 << 16) | (HDS << 17) | (VDS << 19) | (NPB << 20) | (LBS << 21) | (IRS << 22) |
+	       (DMSK << 23) | (IRQ << 24) | (DREQ() << 25) | (IDLE << 26) | (RFFL << 27) | (WFEP << 28) | (DMD << 29) | (ODE << 31);
+	std::cout << std::hex << std::setfill('0') << std::setw(8) << (int)gp1 << "\n";
+	return gp1;*/
 }
 
 void GPU::gp1_write(uint32_t value) {
+	std::cout << "GP1 WRITE\n" << std::hex << std::setfill('0') << std::setw(8) << (int)value << "\n";;
 	switch (value >> 24) {
 		case 0x00: // NEED TO DO MORE HERE!
-			set_gp1_bit(26); // HARDCODED (NOT CORRCT JUST YET)
-			set_gp1_bit(28); // HARDCODED (NOT CORRECT JUST YET)
+			set_gp1(0x14802000);
 			break;
 		case 0x01:
 			gpu_state = GPUState::Idle;
 			break;
-
+		case 0x02:
+			IRQ = 0;
+			break;
+		case 0x03:
+			DMSK = value & 1;
+			break;
+		case 0x04:
+			DMD = value & 3;
+			break;
+		case 0x05:
+			// INCOMPLETE
+			break;
+		case 0x06:
+			// INCOMPLETE
+			break;
+		case 0x07:
+			// INCOMPLETE
+			break;
+		case 0x08:
+			HDS  = value & 3;
+			VDS  = (value >> 2) & 1;
+			NPB  = (value >> 3) & 1;
+			LBS  = (value >> 4) & 1;
+			IRS  = (value >> 5) & 1;
+			HDS2 = (value >> 6) & 1;
+			REV  = (value >> 7) & 1;
+			break;
 		case 0x10:
 		case 0x11:
 		case 0x12:

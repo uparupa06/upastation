@@ -5,6 +5,7 @@
 #include "memory.hpp"
 #include "test_memory.hpp"
 #include "utility.hpp"
+#include "dma.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -184,6 +185,14 @@ public:
 
 	void initialise_components() {
 		memory.initialise();
+	}
+
+	uint64_t get_tick() {
+		return mips_tick;
+	}
+
+	DMA* get_dma() {
+		return memory.get_dma();
 	}
 	
 private:

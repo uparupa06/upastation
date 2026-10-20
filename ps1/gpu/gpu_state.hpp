@@ -10,6 +10,11 @@ enum GPUState {
 	Rectangle_UV,
 	Rectangle_Width_Height,
 
+	// Quick Rectangle
+	Quick_Rectangle_TopLeftCorner,
+	Quick_Rectangle_WidthHeight,
+		
+
 	// Blitting commands
 
 	// VRAM-VRAM
@@ -57,4 +62,10 @@ struct Rectangle {
 	uint16_t upper_left_x, upper_left_y;
 
 	// TEXTURE STUFF NOT YET ADDED
+};
+
+struct QuickRectangle {
+	uint8_t r, g, b;
+	uint16_t x, y; // top left corner
+	uint16_t width, height;
 };

@@ -83,6 +83,8 @@ public:
 		load_bios();
 		dma.initialise();
 		gpu.initialise();
+		dma.connect_gpu(&gpu);
+		dma.connect_memory(this);
 	}
 
 	MemoryRegion get_region(uint32_t addr) {
@@ -214,6 +216,9 @@ public:
 			default:
 				break;
 		}
+		if ((addr & 0xFFFFFF00) == 0x1F801000) {
+			return read_dma(addr);
+		}
 		uint32_t value = uint32_t(read8(addr));
 		R_PAUSE_IF_EXCEPTION
 		value = value | (uint32_t(read8(addr + 1) << 8));
@@ -265,6 +270,10 @@ public:
 			default:
 				break;
 		}
+		if ((addr & 0xFFFFFF00) == 0x1F801000) {
+			write_dma(addr, value);
+			return;
+		}
 		write8(addr, value & 0xFF);
 		W_PAUSE_IF_EXCEPTION
 		write8(addr + 1, (value >> 8)  & 0xFF);
@@ -288,11 +297,17 @@ public:
 		return value;
 	}
 
+	DMA* get_dma() {
+		return &dma;
+	}
+
 	// memory_io.cpp
 	void write_io(uint32_t addr, uint8_t value);
 	uint32_t read_io(uint32_t addr);
 	void write_gpu(bool is_gp1, uint32_t value);
 	uint32_t read_gpu(bool is_gp1);
+	void write_dma(uint32_t addr, uint32_t value);
+	uint32_t read_dma(uint32_t addr);
 
 	void load_bios() {
 		

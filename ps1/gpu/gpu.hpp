@@ -45,6 +45,7 @@ public:
 
 	// gpu_rasterise.cpp
 	void draw_rectangle();
+	void draw_quick_rectangle();
 
 	// gpu.cpp
 	void receive_command(uint32_t value);
@@ -54,6 +55,9 @@ public:
 
 	void receive_rectangle(uint32_t value);
 	void handle_rectangle(uint32_t value);
+
+	void receive_quick_rectangle(uint32_t value);
+	void handle_quick_rectangle(uint32_t value);
 
 	uint32_t gp0_read();
 	void gp0_write(uint32_t value);
@@ -68,6 +72,8 @@ public:
 		return main_window_closed || vram_viewer_closed;
 	}
 
+	bool DREQ();
+
 private:
 
 	std::vector<std::vector<uint16_t>> vram;
@@ -77,23 +83,51 @@ private:
 
 	// Rendering buffers
 	Rectangle rectangle;
+	QuickRectangle quick_rectangle;
 
 	bool gp1_bypass = false;
-	uint32_t gp1_bypass_value;
+	uint32_t gp1_bypass_value = 0;
 
 
 	// Rendering Attributes
 
-	uint32_t TBX, TBY, ABR, TPF, TBY2;
-	bool DTD, DFE, IX, IY;
-	uint8_t texture_window_mask_x, texture_window_mask_y;
-	uint8_t texture_window_offset_x, texture_window_offset_y;
-	uint16_t drawing_area_top_left_x, drawing_area_top_left_y;
-	uint16_t drawing_area_bottom_right_x, drawing_area_bottom_right_y;
-	int16_t drawing_x_offset, drawing_y_offset;
+	uint32_t TBX = 0;
+	uint32_t TBY = 0;
+	uint32_t ABR = 0;
+	uint32_t TPF = 0;
+	uint32_t TBY2 = 0;
+	bool DTD = false;
+	bool DFE = false;
+	bool IX = false;
+	bool IY = false;
+
+	uint8_t texture_window_mask_x = 0;
+	uint8_t texture_window_mask_y = 0;
+	uint8_t texture_window_offset_x  = 0;
+	uint8_t texture_window_offset_y = 0;
+	uint16_t drawing_area_top_left_x = 0;
+	uint16_t drawing_area_top_left_y = 0;
+	uint16_t drawing_area_bottom_right_x = 0;
+	uint16_t drawing_area_bottom_right_y = 0;
+	int16_t drawing_x_offset = 0;
+	int16_t drawing_y_offset = 0;
 	bool PBW = false; // if on, force bit 1 for writes and transfers
 	bool PBC = false; // if on, only draw if bit 15 of the old pixel is 0
 
+	uint8_t HDS = 0;
+	bool VDS = false;
+	bool NPB = false;
+	bool LBS = false;
+	bool IRS = false;
+	bool HDS2 = false;
+	bool REV = false;
+	bool DMSK = false;
+	bool IRQ = false;
+	bool IDLE = false;
+	bool RFFL = false;
+	bool WFEP = false;
+	bool ODE = false;
+	uint8_t DMD = 0;
 	uint32_t gp1 = 0x00; // MIGHT CHANGE
 
 	// Main Window

@@ -1,8 +1,9 @@
 #include "ps1.hpp"
 
-const std::string exe = "psxtest_cpu.exe";
+const std::string exe = "MemoryTransfer16BPP.exe";
 
 void PS1::run() {
+	initialise();
 	mips.initialise_components();
 	if constexpr (SIDELOAD_EXE) {
 		while (mips.ps1_pc_fetch() != 0x80030000 && mips.running()) {
@@ -13,13 +14,21 @@ void PS1::run() {
 		}
 	}
 	while (mips.running()) {
-		mips.tick_component();
+		do_tick();
 	}
+}
+
+void PS1::initialise() {
+	dma = mips.get_dma();
 }
 
 void PS1::do_tick() {
 	// SCHEDULING WILL GO HERE (FOR TIMING)
+	// NOTE TO SELF: OVERFLOW CAUSED ISSUE WITH SCHEDULING HERE!
+	// NEED TO CREATE A MORE COMPLICATED SCHEDULING SYSTEM...
 	mips.tick_component();
+	// BASIC SOLUTION FOR NOW!
+
 }
 
 /*

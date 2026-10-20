@@ -15,14 +15,10 @@ void GPU::draw_rectangle() {
 			rectangle.height = 16;
 	}
 
-	uint16_t pixel;
-
-	if (!rectangle.TGE) {
-		uint8_t r = rectangle.r >> 3;
-		uint8_t g = rectangle.g >> 3;
-		uint8_t b = rectangle.b >> 3;
-		pixel = (b << 10) | (g << 5) | r;
-	}
+	uint8_t r = rectangle.r >> 3;
+	uint8_t g = rectangle.g >> 3;
+	uint8_t b = rectangle.b >> 3;
+	uint16_t pixel = (b << 10) | (g << 5) | r;
 
 	for (int y = 0; y < rectangle.height; y++) {
 		for (int x = 0; x < rectangle.width; x++) {
@@ -31,6 +27,22 @@ void GPU::draw_rectangle() {
 			}
 			uint32_t rect_x = (rectangle.upper_left_x + x) & 1023;
 			uint32_t rect_y = (rectangle.upper_left_y + y) & 511;
+
+			vram[rect_y][rect_x] = pixel;
+		}
+	}
+}
+
+void GPU::draw_quick_rectangle() {
+	uint8_t r = quick_rectangle.r >> 3;
+	uint8_t g = quick_rectangle.g >> 3;
+	uint8_t b = quick_rectangle.b >> 3;
+	uint16_t pixel = (b << 10) | (g << 5) | r;
+
+	for (int oy = 0; oy < quick_rectangle.height; oy++) {
+		for (int ox = 0; ox < quick_rectangle.width; ox++) {
+			uint32_t rect_x = (quick_rectangle.x + ox) & 1023;
+			uint32_t rect_y = (quick_rectangle.y + oy) & 511;
 
 			vram[rect_y][rect_x] = pixel;
 		}

@@ -6,6 +6,8 @@
 // SEARCH 'FOR LATER' TO FIND COPROCESSOR OPCODES (ONLY REMAINING ONES TO BE IMPLEMENTED)
 // ALL branch_pc() + 4 might be incorrect
 
+constexpr bool SHOW_PUTCHAR = false;
+
 MIPS::MIPS() {
 	cop0.connect_mips(this);
 	initialise();
@@ -69,7 +71,9 @@ void MIPS::tick_component() {
 void MIPS::putchar() {
 	uint32_t pc_val = current_pc & 0x1FFFFFFF;
 	if ((pc_val == 0xA0 && r[9] == 0x3C) || (pc_val == 0xB0 && r[9] == 0x3D)) {
-		std::cout << (char)(static_cast<uint8_t>(r[4]));
+		if constexpr (SHOW_PUTCHAR) {
+			std::cout << (char)(static_cast<uint8_t>(r[4]));
+		}
 	}
 }
 
@@ -91,11 +95,13 @@ void MIPS::initialise() {
 	branch_condition = false;
 	i_cycle = 0;
 	cycle = 0;
+	mips_tick = 0;
 }
 
 void MIPS::end() {
 	i_cycle = 0;
 	do_fetch = true;
+	mips_tick += 2; // 2 CPI for now
 }
 
 void MIPS::jump_to_exception(uint32_t vector) {

@@ -5,11 +5,14 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <iostream>
+#include <string>
+#include <iomanip>
 
 // CONSTANTS
 constexpr bool TESTING_CPU = false;
 constexpr bool END_UPON_EXCEPTION = false;
-constexpr bool SIDELOAD_EXE = true;
+constexpr bool SIDELOAD_EXE = false;
 
 template<typename T>
 requires std::is_unsigned_v<T>
@@ -94,3 +97,7 @@ constexpr std::string COLOUR_BOLDBLUE    = "\033[1m\033[34m";
 constexpr std::string COLOUR_BOLDMAGENTA = "\033[1m\033[35m";
 constexpr std::string COLOUR_BOLDCYAN    = "\033[1m\033[36m";
 constexpr std::string COLOUR_BOLDWHITE   = "\033[1m\033[37m";
+
+void clear_bit(uint32_t& value, uint8_t bit);
+void set_bit(uint32_t& value, uint8_t bit);
+void log_32(uint32_t value);

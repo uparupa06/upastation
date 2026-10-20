@@ -1,35 +1,19 @@
 #pragma once
 #include "utility.hpp"
+#include "gpu.hpp"
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
+#include <vector>
+#include <algorithm>
 
-constexpr uint32_t INITIAL_DPCR = 0x7654321;
+class Memory;
 
-struct DMAChannel {
-	uint32_t dmaddr, dmabcr, dmachcr;
-
-	uint32_t start_address; // DMADDR
-	uint32_t bcbs, ba; // DMABCR
-
-	// DMACHCR
-	bool ram_to_device, madr_decrement, special_behaviour;
-	uint8_t transfer_mode;
-	uint16_t chopping_dma_window_size, chopping_cpu_window_size;
-	bool force_transfer_start, override, bus_snooping;
-
-	// DPCR
-	bool priority, master_enable;
-
-	// DICR
-	bool interrupt_behaviour;
-	bool interrupt;
-
-	void reset_interrupt(bool value) {
-		if (value) {
-			// TO-DO LATER: RESET BEHAVIOUR (FIND OUT LATER HOW THIS WORKS)
-
-		}
-	}
+struct Channel {
+	uint32_t addr = 0;
+	uint32_t bcr  = 0;
+	uint32_t chcr = 0;
+	uint8_t priority = 0;
 };
 
 class DMA {
@@ -37,128 +21,64 @@ public:
 	DMA() { }
 
 	void initialise() {
-		set_dpcr(INITIAL_DPCR);
+		dma_tick = 0;
 	}
 
-	void set_dmaddr(uint32_t value, int chnum) {
-		DMAChannel& ch = channels[chnum];
-		ch.dmaddr = value;
-		ch.start_address = extract_bits(value, 0, 23);
-		std::cout << "DMADDR " << (int)chnum << "\n";
-	}
-
-	void set_dmabcr(uint32_t value, int chnum) {
-		DMAChannel& ch = channels[chnum];
-		ch.dmabcr = value;
-		ch.bcbs = extract_bits(value, 0, 15);
-		ch.ba = extract_bits(value, 16, 31);
-		std::cout << "DMABCR " << (int)chnum << "\n";
-	}
-
+	void set_dmaddr(uint32_t value, int chnum)  { channels[chnum].addr = value; std::cout << "DMA Channel " << (int)chnum << " ADDR WRITE "; log_32(channels[chnum].addr); std::cout << "\n"; do_dma(); }
+	void set_dmabcr(uint32_t value, int chnum)  { channels[chnum].bcr = value;  std::cout << "DMA Channel " << (int)chnum << " BCR  WRITE "; log_32(channels[chnum].bcr);  std::cout << "\n"; do_dma(); }
+	
 	void set_dmachcr(uint32_t value, int chnum) {
-		DMAChannel& ch = channels[chnum];
-		ch.dmachcr = value;
-		
-		ch.ram_to_device = get_bit(value, 0);
-		ch.madr_decrement = get_bit(value, 1);
-		ch.special_behaviour = get_bit(value, 8);
-		
-		ch.transfer_mode = extract_bits(value, 9, 10);
-		
-		ch.chopping_dma_window_size = (1u << extract_bits(value, 16, 18));
-		ch.chopping_cpu_window_size = (1u << extract_bits(value, 20, 22));
-
-		ch.force_transfer_start = get_bit(value, 28);
-		ch.override = get_bit(value, 29);
-		ch.bus_snooping = get_bit(value, 30);
-		std::cout << "DMACHCR " << (int)chnum << "\n";
-	}
-
-	uint32_t get_dmaddr(int chnum) {
-		return channels[chnum].dmaddr;
-	}
-
-	uint32_t get_dmabcr(int chnum) {
-		return channels[chnum].dmabcr;
-	}
-
-	uint32_t get_dmachcr(int chnum) {
-		return channels[chnum].dmachcr;
-	}
-
-	void set_dpcr(uint32_t value) {
-		dpcr = value;
-		uint32_t temp = value;
-
-		for (auto& ch : channels) {
-			ch.priority = extract_bits(temp, 0, 2);
-			ch.master_enable = get_bit(temp, 3);
-			temp >>= 4;
+		if (chnum == 6) {
+			channels[chnum].chcr = value & ((1u << 24) | (1u << 28) | (1u << 30));
+		} else {
+			channels[chnum].chcr = value;
 		}
-		
-		cpu_memory_access_priority = extract_bits(value, 28, 30);
+		std::cout << "DMA Channel " << (int)chnum << " CHCR WRITE ";
+		log_32(channels[chnum].chcr); std::cout << "\n";
+		do_dma();
 	}
 
-	void set_dicr(uint32_t value) {
-		dicr = (value & ~(0xFF << 24));
+	uint32_t get_dmaddr(int chnum)  { std::cout << "DMA Channel " << (int)chnum << " ADDR READ "; log_32(channels[chnum].addr); std::cout << "\n"; return channels[chnum].addr; }
+	uint32_t get_dmabcr(int chnum)  { std::cout << "DMA Channel " << (int)chnum << " BCR  READ "; log_32(channels[chnum].bcr);  std::cout << "\n"; return channels[chnum].bcr;  }
+	uint32_t get_dmachcr(int chnum) { std::cout << "DMA Channel " << (int)chnum << " ADDR READ "; log_32(channels[chnum].chcr); std::cout << "\n"; return channels[chnum].chcr; }
 
-		uint32_t temp;
+	void set_dpcr(uint32_t value) { dpcr = value; std::cout << "DPCR WRITE "; log_32(dpcr); std::cout << "\n"; do_dma(); }
+	void set_dicr(uint32_t value) { dicr = value; std::cout << "DICR WRITE "; log_32(dicr); std::cout << "\n"; do_dma(); }
 
-		temp = extract_bits(dicr, 0, 6);
-		for (auto& ch : channels) {
-			ch.interrupt_behaviour = (temp & 1u);
-			temp >>= 1;
-		}
+	uint32_t get_dpcr() { std::cout << "DPCR READ "; log_32(dpcr); std::cout << "\n"; return dpcr; }
+	uint32_t get_dicr() { std::cout << "DICR READ "; log_32(dpcr); std::cout << "\n"; return dicr; }
 
-		bus_error_flag = get_bit(value, 15);
-		interrupt_mask = extract_bits(value, 16, 22);
-		master_channel_interrupt_enable = get_bit(value, 23);
-
-		temp = extract_bits(value, 24, 30);
-		for (auto& ch : channels) {
-			ch.reset_interrupt(temp & 1u);
-			temp >>= 1;
-		}
-
-		master_interrupt_flag = (bus_error_flag || (master_channel_interrupt_enable && (temp > 0)));
-		dicr |= (master_interrupt_flag << 31);
-
+	void connect_gpu(GPU* gpu) {
+		this->gpu = gpu;
 	}
 
-	uint32_t get_dpcr() {
-		return dpcr;
+	void connect_memory(Memory* memory) {
+		this->memory = memory;
 	}
 
-	uint32_t get_dicr() {
-		dicr &= ~(0x7F << 24);
+	// dma.cpp
+	void do_dma();
+	bool channel_condition(int chnum);
 
-		uint32_t temp = 0;
-		for (int i = 7; i >= 0; i--) {
-			if (interrupt_mask & (1u << i)) {
-				temp |= channels[i].interrupt;
-			}
-			temp <<= 1;
-		}
+	void do_dma0_transfer();
+	void do_dma1_transfer();
+	void do_dma2_transfer();
+	void do_dma3_transfer();
+	void do_dma4_transfer();
+	void do_dma5_transfer();
+	void do_dma6_transfer();
 
-		dicr |= (temp << 24);
-
-		return dicr;
-
-	}
+	void tick_component();
 
 private:
+	Channel channels[7] {};
 
-	DMAChannel channels[7] {};
+	GPU* gpu = nullptr;
+	Memory* memory = nullptr;
 
-	uint32_t dpcr, dicr; // DICR will be bitwise OR'ed to include values of bits 24-30
+	uint64_t dma_tick = 0;
 
-	// DPCR
-	uint32_t cpu_memory_access_priority;
-
-	// DICR
-	bool bus_error_flag;
-	uint32_t interrupt_mask;
-	bool master_channel_interrupt_enable;
-	bool master_interrupt_flag;
+	uint32_t dpcr = 0;
+	uint32_t dicr = 0;
 
 };
