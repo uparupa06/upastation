@@ -11,6 +11,10 @@ void GPU::receive_command(uint32_t value) {
 		case 0b100: gpu_state = GPUState::VRAM_VRAM_Source_Coord; return;
 		case 0b101: gpu_state = GPUState::CPU_VRAM_Destination_Coord; return;
 		case 0b110: gpu_state = GPUState::VRAM_CPU_Source_Coord; return;
+		case 0b011: receive_rectangle(value); return;
+		default:
+			std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n";
+			break;
 	}
 
 	// Rendering attributgp1_read(e commands (INCOMPLETE)
@@ -50,18 +54,16 @@ void GPU::receive_command(uint32_t value) {
 			// SHOULD BE CORRECT, DOUBLE CHECK!!
 			drawing_x_offset = static_cast<int16_t>((value & 0x7FF) | 0xF800);
 			drawing_y_offset = static_cast<int16_t>(((value >> 11) & 0x7FF) | 0xF800);
-			break;
+			return;
 
 		// Drawing commands (quick rectangle fill)
 		case 0x02:
 			receive_quick_rectangle(value);
-			break;
-	}
+			return;
 
-	switch (value >> 29) {
-		case 3:
-			receive_rectangle(value);
-			break;
+		default:
+			std::cout << "(POSSIBLE) UNHANDLED TOP 2 BYTES FOR GP0 COMMAND\n";
+			return;
 	}
 }
 
@@ -181,16 +183,21 @@ void GPU::blit_command(uint32_t value) {
 			blit.dest.y = (value >> 16) & 0x1FF;
 			gpu_state = GPUState::VRAM_VRAM_Width_Height;
 			break;
-		case GPUState::VRAM_VRAM_Width_Height:
+		case GPUState::VRAM_VRAM_Width_Height: {
 			std::cout << "VRAM-VRAM\n";
-			int w = ((value & 0x3FF) - 1 & 0x3FF) + 1;
-			int h = (((value >> 16) & 0x1FF) - 1 & 0x1FF) + 1;
+			int w = value & 0x3FF;
+			int h = (value >> 16) & 0x1FF;
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
 					vram[(blit.dest.y + y) & 0x1FF][(blit.dest.x + x) & 0x3FF] = vram[(blit.src.y + y) & 0x1FF][(blit.src.x + x) & 0x3FF];
 				}
 			}
 			gpu_state = GPUState::Idle;
+			break;
+		}
+
+		default:
+			std::cout << "UNEXPECTED GPU STATE FOR BLIT COMMANDS\n";
 			break;
 
 		// VRAM-to-CPU
@@ -249,6 +256,9 @@ void GPU::gp0_write(uint32_t value) {
 		case GPUState::Quick_Rectangle_WidthHeight:
 			handle_quick_rectangle(value);
 			break;
+		default:
+			std::cout << "UNEXPECTED GPU STATE\n";
+			break;
 	}
 }
 
@@ -280,6 +290,9 @@ void GPU::handle_rectangle(uint32_t value) {
 			rectangle.height = (value >> 16) & 0x1FF;
 			draw_rectangle();
 			gpu_state = GPUState::Idle;
+			break;
+		default:
+			std::cout << "UNEXPECTED STATE (handle_rectangle)\n";
 			break;
 	}
 }
@@ -341,16 +354,17 @@ void GPU::clear_gp1_bit(int bit) {
 
 bool GPU::DREQ() {
 	switch (DMD) {
-	case 0:
-		return false;
-	case 1:
-		return true; // TEMPORARY SOLUTION
-	case 2:
-		return WFEP;
-	case 3:
-		return RFFL;
-	default:
-		return false;
+		case 0:
+			return false;
+		case 1:
+			return true; // TEMPORARY SOLUTION
+		case 2:
+			return WFEP;
+		case 3:
+			return RFFL;
+		default:
+			std::cout << "UNEXPECTED DMD VALUE\n";
+			return false;
 	}
 }
 
@@ -442,6 +456,9 @@ void GPU::gp1_write(uint32_t value) {
 			gp1_bypass = true;
 			break;
 		}
+		default:
+			std::cout << "NOT HANDLING GP1 WRITE\n";
+			break;
 	}
 
 	//std::cout << "GP1 WRITE " << std::hex << std::setw(8) << std::setfill('0') << (int)value << "\n";

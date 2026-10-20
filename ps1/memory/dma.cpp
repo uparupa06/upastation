@@ -33,6 +33,7 @@ void DMA::do_dma() {
 			case 4:	do_dma4_transfer(); break;
 			case 5:	do_dma5_transfer(); break;
 			case 6: do_dma6_transfer(); break;
+			default: std::cout << "ATTEMPTING TRANSFER WITH NON-EXISTENT CHANNEL\n"; break;
 		}
 	}
 }
@@ -56,23 +57,49 @@ void DMA::do_dma1_transfer() {
 
 void DMA::do_dma2_transfer() {
 	Channel& ch = channels[2];
-	uint32_t address = extract_bits(ch.addr, 0, 23);
-	uint32_t next_address = 0;
-	uint32_t transferred = 0;
-	do {
-		uint32_t header = memory->read32(address);
-		uint32_t data_words = header >> 24;
-		for (int i = 0; i < data_words; i++) {
-			uint32_t data = memory->read32(address + 4 * (i + 1));
-			gpu->gp0_write(data);
+	uint32_t transfer_mode = extract_bits(ch.chcr, 9, 10);
+	switch (transfer_mode) {
+		case 0:
+		case 1: {
+			std::cout << "BURST/SLICE MODE DMA\n";
+			uint32_t address = extract_bits(ch.addr, 0, 23);
+			uint32_t dma_len = extract_bits(ch.bcr, 0, 15);
+			if (transfer_mode == 1) {
+				dma_len *= extract_bits(ch.bcr, 16, 31);
+			}
+			for (int i = 0; i < dma_len; i++) {
+				uint32_t data = memory->read32(address);
+				gpu->gp0_write(data);
+				address += 4;
+			}
+			break;
 		}
-		next_address = header & 0xFFFFFF;
-		if (!(next_address & (1 << 23))) {
-			address = next_address;
-		}
-		transferred++;
-	} while (!(next_address & (1 << 23)) && transferred < MAX_TRANSFER);
+		case 2: {
+			std::cout << "LINKED LIST DMA2\n";
 
+			uint32_t address = extract_bits(ch.addr, 0, 23);
+			uint32_t next_address = 0;
+			uint32_t transferred = 0;
+			do {
+				uint32_t header = memory->read32(address);
+				uint32_t data_words = header >> 24;
+				for (int i = 0; i < data_words; i++) {
+					uint32_t data = memory->read32(address + 4 * (i + 1));
+					gpu->gp0_write(data);
+				}
+				next_address = header & 0xFFFFFF;
+				if (!(next_address & (1 << 23))) {
+					address = next_address;
+				}
+				transferred++;
+			} while (!(next_address & (1 << 23)) && transferred < MAX_TRANSFER);
+
+			break;
+		}
+		default:
+			std::cout << "CALLING RESERVED TRANSFER MODE FOR DMA2\n";
+			break;
+	}
 	std::cout << "DID DMA2 transfer\n";
 	clear_bit(ch.chcr, CHCR_START_TRANSFER);
 }

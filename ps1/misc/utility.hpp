@@ -12,7 +12,7 @@
 // CONSTANTS
 constexpr bool TESTING_CPU = false;
 constexpr bool END_UPON_EXCEPTION = false;
-constexpr bool SIDELOAD_EXE = true;
+constexpr bool SIDELOAD_EXE = false;
 
 template<typename T>
 requires std::is_unsigned_v<T>
