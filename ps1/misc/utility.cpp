@@ -21,3 +21,13 @@ void set_bit(uint32_t& value, uint8_t bit) {
 void log_32(uint32_t value) {
 	std::cout << std::hex << std::setw(8) << std::setfill('0') << (int)value;
 }
+
+int16_t sign_extend_11(uint32_t value) {
+	value &= 0x7FF;
+
+	if (value & 0x400) {
+		value |= 0xF800;
+	}
+
+	return static_cast<int16_t>(value);
+}

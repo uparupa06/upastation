@@ -46,6 +46,9 @@ public:
 	// gpu_rasterise.cpp
 	void draw_rectangle();
 	void draw_quick_rectangle();
+	void draw_polygon();
+	void add_offset(Vertex& v);
+	void rasterise_triangle(Vertex a, Vertex b, Vertex c);
 
 	// gpu.cpp
 	void receive_command(uint32_t value);
@@ -53,8 +56,13 @@ public:
 	uint16_t blit_vram_cpu();
 	void blit_command(uint32_t value);
 
+	void receive_polygon(uint32_t value);
+	void handle_polygon(uint32_t value);
+
 	void receive_rectangle(uint32_t value);
 	void handle_rectangle(uint32_t value);
+	void pass_clut(uint16_t clut);
+	void pass_page(uint16_t page);
 
 	void receive_quick_rectangle(uint32_t value);
 	void handle_quick_rectangle(uint32_t value);
@@ -83,6 +91,7 @@ private:
 
 	// Rendering buffers
 	Rectangle rectangle;
+	Polygon polygon;
 	QuickRectangle quick_rectangle;
 
 	bool gp1_bypass = false;

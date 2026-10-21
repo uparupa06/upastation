@@ -8,6 +8,7 @@ void GPU::receive_command(uint32_t value) {
 	// GPU Memory Transfer Commands (Incomplete)
 
 	switch (value >> 29) {
+		case 0b001: receive_polygon(value); return;
 		case 0b100: gpu_state = GPUState::VRAM_VRAM_Source_Coord; return;
 		case 0b101: gpu_state = GPUState::CPU_VRAM_Destination_Coord; return;
 		case 0b110: gpu_state = GPUState::VRAM_CPU_Source_Coord; return;
@@ -43,17 +44,17 @@ void GPU::receive_command(uint32_t value) {
 
 		// SPECIAL-CASING THESE AS THEY HAVE BIZARRE FIFO BEHAVIOUR
 		case 0xE3:
-			drawing_area_top_left_x = value & 0x1FF;
-			drawing_area_top_left_y = (value >> 10) & 0x1FF;
+			drawing_area_top_left_x = value & 0x3FF;
+			drawing_area_top_left_y = (value >> 10) & 0x3FF;
 			return;
 		case 0xE4:
-			drawing_area_bottom_right_x = value & 0x1FF;
-			drawing_area_bottom_right_y = (value >> 10) & 0x1FF;
+			drawing_area_bottom_right_x = value & 0x3FF;
+			drawing_area_bottom_right_y = (value >> 10) & 0x3FF;
 			return;
 		case 0xE5:
 			// SHOULD BE CORRECT, DOUBLE CHECK!!
-			drawing_x_offset = static_cast<int16_t>((value & 0x7FF) | 0xF800);
-			drawing_y_offset = static_cast<int16_t>(((value >> 11) & 0x7FF) | 0xF800);
+			drawing_x_offset = sign_extend_11(value & 0x7FF);
+			drawing_y_offset = sign_extend_11((value >> 11) & 0x7FF);
 			return;
 
 		// Drawing commands (quick rectangle fill)
@@ -64,6 +65,175 @@ void GPU::receive_command(uint32_t value) {
 		default:
 			std::cout << "(POSSIBLE) UNHANDLED TOP 2 BYTES FOR GP0 COMMAND\n";
 			return;
+	}
+}
+
+void GPU::receive_polygon(uint32_t value) {
+	polygon.r0 = value & 0xFF;
+	polygon.g0 = (value >> 8) & 0xFF;
+	polygon.b0 = (value >> 16) & 0xFF;
+	polygon.TGE = get_bit(value, 24);
+	polygon.ABE = get_bit(value, 25);
+	polygon.TME = get_bit(value, 26);
+	polygon.VTX = get_bit(value, 27);
+	polygon.IIP = get_bit(value, 28);
+	polygon.uv_passed = 0;
+	polygon.vert_passed = 0;
+	polygon.CLX = 0;
+	polygon.CLY = 0;
+	polygon.vertices.clear();
+
+	polygon.max_verts = polygon.VTX ? 4 : 3;
+
+	if (polygon.TME) {
+		if (polygon.IIP) {
+			polygon.format = PolygonFormat::CommandVertexUV_ColourVertexUV;
+			gpu_state = GPUState::CommandVertexUV_ColourVertexUV_FirstVertex;
+		} else {
+			polygon.format = PolygonFormat::Command_VertexUV;
+			gpu_state = GPUState::Command_VertexUV_Vertex;
+		}
+	} else {
+		if (polygon.IIP) {
+			polygon.format = PolygonFormat::CommandVertex_ColourVertex;
+			gpu_state = GPUState::CommandVertex_ColourVertex_FirstVertex;
+		} else {
+			polygon.format = PolygonFormat::Command_Vertex;
+			gpu_state = GPUState::Command_Vertex_Vertex;
+		}
+	}
+}
+
+void GPU::pass_clut(uint16_t clut) {
+	// TO DO
+}
+
+void GPU::pass_page(uint16_t page) {
+	// TO DO
+}
+
+void GPU::handle_polygon(uint32_t value) {
+	switch (gpu_state) {
+		// Format 1
+		case GPUState::Command_Vertex_Vertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			if (polygon.vert_passed == polygon.max_verts) {
+				polygon.render_type = polygon.TME ? PolygonRenderType::FlatModTEX : PolygonRenderType::FlatShadeNOTEX;
+				draw_polygon();
+				gpu_state = GPUState::Idle;
+			}
+			break;
+
+		// Format 2
+		case GPUState::CommandVertex_ColourVertex_FirstVertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			polygon.v.r = polygon.r0;
+			polygon.v.g = polygon.g0;
+			polygon.v.b = polygon.b0;
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			gpu_state = GPUState::CommandVertex_ColourVertex_Colour;
+			break;
+		case GPUState::CommandVertex_ColourVertex_Colour:
+			polygon.v.r = value & 0xFF;
+			polygon.v.g = (value >> 8) & 0xFF;
+			polygon.v.b = (value >> 16) & 0xFF;
+			gpu_state = GPUState::CommandVertex_ColourVertex_Vertex;
+			break;
+		case GPUState::CommandVertex_ColourVertex_Vertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			if (polygon.vert_passed == polygon.max_verts) {
+				polygon.render_type = polygon.TME ? PolygonRenderType::GourardModTEX : PolygonRenderType::GourardShadeNOTEX;
+				draw_polygon();
+				gpu_state = GPUState::Idle;
+			} else {
+				gpu_state = GPUState::CommandVertex_ColourVertex_Colour;
+			}
+			break;
+
+		// Format 3
+		case GPUState::Command_VertexUV_Vertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			gpu_state = GPUState::Command_VertexUV_UV;
+			break;
+		case GPUState::Command_VertexUV_UV:
+			if (polygon.uv_passed == 0) {
+				pass_clut(value >> 16);
+			}
+			if (polygon.uv_passed == 1) {
+				pass_page(value >> 16);
+			}
+			polygon.v.u = value & 0xFF;
+			polygon.v.v = (value >> 8) & 0xFF;
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			polygon.uv_passed++;
+			if (polygon.vert_passed == polygon.max_verts) {
+				polygon.render_type = polygon.TME ? PolygonRenderType::RawTEX : PolygonRenderType::FlatShadeNOTEX;
+				draw_polygon();
+				gpu_state = GPUState::Idle;
+			} else {
+				gpu_state = GPUState::Command_VertexUV_Vertex;
+			}
+			break;
+
+		// Format 4
+		case GPUState::CommandVertexUV_ColourVertexUV_FirstVertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			polygon.v.r = polygon.r0;
+			polygon.v.g = polygon.g0;
+			polygon.v.b = polygon.b0;
+			gpu_state = GPUState::CommandVertexUV_ColourVertexUV_FirstUV;
+			break;
+		case GPUState::CommandVertexUV_ColourVertexUV_FirstUV:
+			pass_clut(value >> 16);
+			polygon.v.u = value & 0xFF;
+			polygon.v.v = (value >> 8) & 0xFF;
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			polygon.uv_passed++;
+			gpu_state = GPUState::CommandVertexUV_ColourVertexUV_Colour;
+			break;
+		case GPUState::CommandVertexUV_ColourVertexUV_Colour:
+			polygon.v.r = value & 0xFF;
+			polygon.v.g = (value >> 8) & 0xFF;
+			polygon.v.b = (value >> 16) & 0xFF;
+			gpu_state = GPUState::CommandVertexUV_ColourVertexUV_Vertex;
+			break;
+		case GPUState::CommandVertexUV_ColourVertexUV_Vertex:
+			polygon.v.x = sign_extend_11(value & 0xFFFF);
+			polygon.v.y = sign_extend_11((value >> 16) & 0xFFFF);
+			gpu_state = GPUState::CommandVertexUV_ColourVertexUV_UV;
+			break;
+		case GPUState::CommandVertexUV_ColourVertexUV_UV:
+			if (polygon.uv_passed == 1) {
+				pass_page(value >> 16);
+			}
+			polygon.v.u = value & 0xFF;
+			polygon.v.v = (value >> 8) & 0xFF;
+			polygon.vertices.push_back(polygon.v);
+			polygon.vert_passed++;
+			polygon.uv_passed++;
+			if (polygon.vert_passed == polygon.max_verts) {
+				polygon.render_type = polygon.TME ? PolygonRenderType::RawTEX : PolygonRenderType::GourardShadeNOTEX;
+				draw_polygon();
+				gpu_state = GPUState::Idle;
+			} else {
+				gpu_state = GPUState::CommandVertexUV_ColourVertexUV_Colour;
+			}
+			break;
+
+		default:
+			std::cout << "UNEXPECTED POLYGON STATE\n";
 	}
 }
 
@@ -255,6 +425,19 @@ void GPU::gp0_write(uint32_t value) {
 		case GPUState::Quick_Rectangle_TopLeftCorner:
 		case GPUState::Quick_Rectangle_WidthHeight:
 			handle_quick_rectangle(value);
+			break;
+		case GPUState::Command_Vertex_Vertex:
+		case GPUState::CommandVertex_ColourVertex_FirstVertex:
+		case GPUState::CommandVertex_ColourVertex_Colour:
+		case GPUState::CommandVertex_ColourVertex_Vertex:
+		case GPUState::Command_VertexUV_Vertex:
+		case GPUState::Command_VertexUV_UV:
+		case GPUState::CommandVertexUV_ColourVertexUV_FirstVertex:
+		case GPUState::CommandVertexUV_ColourVertexUV_FirstUV:
+		case GPUState::CommandVertexUV_ColourVertexUV_Colour:
+		case GPUState::CommandVertexUV_ColourVertexUV_Vertex:
+		case GPUState::CommandVertexUV_ColourVertexUV_UV:
+			handle_polygon(value);
 			break;
 		default:
 			std::cout << "UNEXPECTED GPU STATE\n";

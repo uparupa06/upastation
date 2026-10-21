@@ -101,3 +101,4 @@ constexpr std::string COLOUR_BOLDWHITE   = "\033[1m\033[37m";
 void clear_bit(uint32_t& value, uint8_t bit);
 void set_bit(uint32_t& value, uint8_t bit);
 void log_32(uint32_t value);
+int16_t sign_extend_11(uint32_t value);
