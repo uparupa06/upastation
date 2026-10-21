@@ -14,7 +14,7 @@ void GPU::receive_command(uint32_t value) {
 		case 0b110: gpu_state = GPUState::VRAM_CPU_Source_Coord; return;
 		case 0b011: receive_rectangle(value); return;
 		default:
-			std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n";
+			std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n" << std::hex << std::setw(3) << std::setfill('0') << (int)(value >> 29);
 			break;
 	}
 

@@ -128,3 +128,7 @@ struct QuickRectangle {
 	uint16_t x, y; // top left corner
 	uint16_t width, height;
 };
+
+struct Weights {
+	float a, b, c;
+};

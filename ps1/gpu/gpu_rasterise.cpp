@@ -75,7 +75,21 @@ bool is_inside_triangle(Vertex p, Vertex a, Vertex b, Vertex c) {
 	return !(triangle_condition(p, a, b) || triangle_condition(p, b, c) || triangle_condition(p, c, a));
 }
 
+Weights interpolate_barycentric(Vertex p, Vertex a, Vertex b, Vertex c) {
+	float divisor = (float)(((b.y - c.y) * (a.x - c.x)) + ((c.x - b.x) * (a.y - c.y)));
+	Weights w;
+	w.a = (float)(((b.y - c.y) * (p.x - c.x)) + ((c.x - b.x) * (p.y - c.y))) / divisor;
+	w.b = (float)(((c.y - a.y) * (p.x - c.x)) + ((a.x - c.x) * (p.y - c.y))) / divisor;
+	w.c = 1 - w.a - w.b;
+	return w;
+}
+
+uint32_t apply_weights(Weights w, uint32_t a, uint32_t b, uint32_t c) {
+	return (w.a * a) + (w.b * b) + (w.c * c);
+}
+
 void GPU::rasterise_triangle(Vertex a, Vertex b, Vertex c) {
+	Weights w;
 
 	int cross_prod = cross_product_z(a, b, c);
 	if (cross_prod < 0) {
@@ -102,10 +116,14 @@ void GPU::rasterise_triangle(Vertex a, Vertex b, Vertex c) {
 		return;
 	}
 
-	uint8_t col_r = polygon.r0 >> 3;
-	uint8_t col_g = polygon.g0 >> 3;
-	uint8_t col_b = polygon.b0 >> 3;
-	uint16_t pixel = (col_b << 10) | (col_g << 5) | col_r;
+	uint16_t pixel = 0x00;
+
+	if (polygon.render_type == PolygonRenderType::FlatShadeNOTEX) {
+		uint8_t col_r = polygon.r0 >> 3;
+		uint8_t col_g = polygon.g0 >> 3;
+		uint8_t col_b = polygon.b0 >> 3;
+		pixel = (col_b << 10) | (col_g << 5) | col_r;
+	}
 
 	for (int x = min_x; x < max_x; x++) {
 		for (int y = min_y; y < max_y; y++) {
@@ -114,6 +132,18 @@ void GPU::rasterise_triangle(Vertex a, Vertex b, Vertex c) {
 			p.y = y;
 			if (is_inside_triangle(p, a, b, c)) {
 				if (p.x >= 0 && p.x < 1024 && p.y >= 0 && p.y < 512) {
+					switch (polygon.render_type) {
+						case PolygonRenderType::GourardShadeNOTEX: {
+							w = interpolate_barycentric(p, a, b, c);
+							uint8_t col_r = (uint8_t)apply_weights(w, a.r, b.r, c.r) >> 3;
+							uint8_t col_g = (uint8_t)apply_weights(w, a.g, b.g, c.g) >> 3;
+							uint8_t col_b = (uint8_t)apply_weights(w, a.b, b.b, c.b) >> 3;
+							pixel = (col_b << 10) | (col_g << 5) | col_r;
+							break;
+						}
+						default:
+							break;
+					}
 					vram[p.y][p.x] = pixel;
 				}
 			}
