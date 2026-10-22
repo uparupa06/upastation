@@ -49,6 +49,7 @@ public:
 	void draw_polygon();
 	void add_offset(Vertex& v);
 	void rasterise_triangle(Vertex a, Vertex b, Vertex c);
+	uint16_t fetch_polygon_texture(uint16_t tex_u, uint16_t tex_v);
 
 	// gpu.cpp
 	void receive_command(uint32_t value);
@@ -62,7 +63,7 @@ public:
 	void receive_rectangle(uint32_t value);
 	void handle_rectangle(uint32_t value);
 	void pass_clut(uint16_t clut);
-	void pass_page(uint16_t page);
+	void pass_tpage(uint16_t tpage);
 
 	void receive_quick_rectangle(uint32_t value);
 	void handle_quick_rectangle(uint32_t value);

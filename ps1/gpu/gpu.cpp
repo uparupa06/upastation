@@ -13,6 +13,8 @@ void GPU::receive_command(uint32_t value) {
 		case 0b101: gpu_state = GPUState::CPU_VRAM_Destination_Coord; return;
 		case 0b110: gpu_state = GPUState::VRAM_CPU_Source_Coord; return;
 		case 0b011: receive_rectangle(value); return;
+		case 0b111:
+			break;
 		default:
 			std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n" << std::hex << std::setw(3) << std::setfill('0') << (int)(value >> 29);
 			break;
@@ -64,6 +66,7 @@ void GPU::receive_command(uint32_t value) {
 
 		default:
 			std::cout << "(POSSIBLE) UNHANDLED TOP 2 BYTES FOR GP0 COMMAND\n";
+			std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(value >> 24) << "\n";
 			return;
 	}
 }
@@ -105,11 +108,17 @@ void GPU::receive_polygon(uint32_t value) {
 }
 
 void GPU::pass_clut(uint16_t clut) {
-	// TO DO
+	polygon.CLX = extract_bits(clut, 0, 5);
+	polygon.CLY = extract_bits(clut, 6, 14);
+	if constexpr (SHOW_LOGS) std::cout << "CLX " << std::dec << (int)(polygon.CLX) << " CLY " << std::dec << (int)(polygon.CLY) << "\n";
 }
 
-void GPU::pass_page(uint16_t page) {
-	// TO DO
+void GPU::pass_tpage(uint16_t tpage) {
+	TBX  = tpage & 0xF;
+	TBY  = (tpage >> 4) & 1;
+	ABR  = (tpage >> 5) & 3;
+	TPF  = (tpage >> 7) & 3;
+	TBY2 = (tpage >> 11) & 1;
 }
 
 void GPU::handle_polygon(uint32_t value) {
@@ -169,7 +178,7 @@ void GPU::handle_polygon(uint32_t value) {
 				pass_clut(value >> 16);
 			}
 			if (polygon.uv_passed == 1) {
-				pass_page(value >> 16);
+				pass_tpage(value >> 16);
 			}
 			polygon.v.u = value & 0xFF;
 			polygon.v.v = (value >> 8) & 0xFF;
@@ -216,7 +225,7 @@ void GPU::handle_polygon(uint32_t value) {
 			break;
 		case GPUState::CommandVertexUV_ColourVertexUV_UV:
 			if (polygon.uv_passed == 1) {
-				pass_page(value >> 16);
+				pass_tpage(value >> 16);
 			}
 			polygon.v.u = value & 0xFF;
 			polygon.v.v = (value >> 8) & 0xFF;
@@ -233,7 +242,7 @@ void GPU::handle_polygon(uint32_t value) {
 			break;
 
 		default:
-			std::cout << "UNEXPECTED POLYGON STATE\n";
+			if constexpr (SHOW_LOGS) std::cout << "UNEXPECTED POLYGON STATE\n";
 	}
 }
 
@@ -319,7 +328,7 @@ void GPU::blit_command(uint32_t value) {
 				blit_cpu_vram(value >> 16);
 			}
 			if (blit.counter == 0) {
-				std::cout << "CPU-VRAM\n";
+				if constexpr (SHOW_LOGS) std::cout << "CPU-VRAM\n";
 				gpu_state = GPUState::Idle;
 				update_vram_viewer();
 			}
@@ -354,7 +363,7 @@ void GPU::blit_command(uint32_t value) {
 			gpu_state = GPUState::VRAM_VRAM_Width_Height;
 			break;
 		case GPUState::VRAM_VRAM_Width_Height: {
-			std::cout << "VRAM-VRAM\n";
+			if constexpr (SHOW_LOGS) std::cout << "VRAM-VRAM\n";
 			int w = value & 0x3FF;
 			int h = (value >> 16) & 0x1FF;
 			for (int y = 0; y < h; y++) {
@@ -367,7 +376,7 @@ void GPU::blit_command(uint32_t value) {
 		}
 
 		default:
-			std::cout << "UNEXPECTED GPU STATE FOR BLIT COMMANDS\n";
+			if constexpr (SHOW_LOGS) std::cout << "UNEXPECTED GPU STATE FOR BLIT COMMANDS\n";
 			break;
 
 		// VRAM-to-CPU
@@ -440,7 +449,7 @@ void GPU::gp0_write(uint32_t value) {
 			handle_polygon(value);
 			break;
 		default:
-			std::cout << "UNEXPECTED GPU STATE\n";
+			if constexpr (SHOW_LOGS) std::cout << "UNEXPECTED GPU STATE\n";
 			break;
 	}
 }
@@ -475,7 +484,7 @@ void GPU::handle_rectangle(uint32_t value) {
 			gpu_state = GPUState::Idle;
 			break;
 		default:
-			std::cout << "UNEXPECTED STATE (handle_rectangle)\n";
+			if constexpr (SHOW_LOGS) std::cout << "UNEXPECTED STATE (handle_rectangle)\n";
 			break;
 	}
 }
@@ -546,13 +555,13 @@ bool GPU::DREQ() {
 		case 3:
 			return RFFL;
 		default:
-			std::cout << "UNEXPECTED DMD VALUE\n";
+			if constexpr (SHOW_LOGS) std::cout << "UNEXPECTED DMD VALUE\n";
 			return false;
 	}
 }
 
 uint32_t GPU::gp1_read() {
-	std::cout << "GP1 READ\n";
+	if constexpr (SHOW_LOGS) std::cout << "GP1 READ\n";
 	return 0x5E800000; // MAGIC NUMBER (REMOVE WHEN THIS FEATURE HAS BEEN WRITTEN)
 	/*gp1 =  (TBX << 0)   | (TBY << 4)  | (ABR  << 5)  | (TPF  << 7)  | (DTD  << 9)  | (DFE << 10)  |
 	       (PBW << 11)  | (PBC << 12) | (~IRS << 13) | (REV  << 14) | (TBY2 << 15) | (HDS2 << 16) | (HDS << 17) | (VDS << 19) | (NPB << 20) | (LBS << 21) | (IRS << 22) |
@@ -562,7 +571,7 @@ uint32_t GPU::gp1_read() {
 }
 
 void GPU::gp1_write(uint32_t value) {
-	std::cout << "GP1 WRITE\n" << std::hex << std::setfill('0') << std::setw(8) << (int)value << "\n";;
+	if constexpr (SHOW_LOGS) std::cout << "GP1 WRITE\n" << std::hex << std::setfill('0') << std::setw(8) << (int)value << "\n";;
 	switch (value >> 24) {
 		case 0x00: // NEED TO DO MORE HERE!
 			set_gp1(0x14802000);
@@ -640,7 +649,7 @@ void GPU::gp1_write(uint32_t value) {
 			break;
 		}
 		default:
-			std::cout << "NOT HANDLING GP1 WRITE\n";
+			if constexpr (SHOW_LOGS) std::cout << "NOT HANDLING GP1 WRITE\n";
 			break;
 	}
 

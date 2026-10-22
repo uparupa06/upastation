@@ -33,7 +33,7 @@ void DMA::do_dma() {
 			case 4:	do_dma4_transfer(); break;
 			case 5:	do_dma5_transfer(); break;
 			case 6: do_dma6_transfer(); break;
-			default: std::cout << "ATTEMPTING TRANSFER WITH NON-EXISTENT CHANNEL\n"; break;
+			default: if constexpr (SHOW_LOGS) std::cout << "ATTEMPTING TRANSFER WITH NON-EXISTENT CHANNEL\n"; break;
 		}
 	}
 }
@@ -46,12 +46,12 @@ bool DMA::channel_condition(int chnum) {
 }
 
 void DMA::do_dma0_transfer() {
-	std::cout << "DOING DMA0 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DOING DMA0 transfer\n";
 	clear_bit(channels[0].chcr, CHCR_START_TRANSFER);
 }
 
 void DMA::do_dma1_transfer() {
-	std::cout << "DOING DMA1 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DOING DMA1 transfer\n";
 	clear_bit(channels[1].chcr, CHCR_START_TRANSFER);
 }
 
@@ -61,7 +61,7 @@ void DMA::do_dma2_transfer() {
 	switch (transfer_mode) {
 		case 0:
 		case 1: {
-			std::cout << "BURST/SLICE MODE DMA\n";
+			if constexpr (SHOW_LOGS) std::cout << "BURST/SLICE MODE DMA\n";
 			uint32_t address = extract_bits(ch.addr, 0, 23);
 			uint32_t dma_len = extract_bits(ch.bcr, 0, 15);
 			if (transfer_mode == 1) {
@@ -75,7 +75,7 @@ void DMA::do_dma2_transfer() {
 			break;
 		}
 		case 2: {
-			std::cout << "LINKED LIST DMA2\n";
+			if constexpr (SHOW_LOGS) std::cout << "LINKED LIST DMA2\n";
 
 			uint32_t address = extract_bits(ch.addr, 0, 23);
 			uint32_t next_address = 0;
@@ -97,25 +97,25 @@ void DMA::do_dma2_transfer() {
 			break;
 		}
 		default:
-			std::cout << "CALLING RESERVED TRANSFER MODE FOR DMA2\n";
+			if constexpr (SHOW_LOGS) std::cout << "CALLING RESERVED TRANSFER MODE FOR DMA2\n";
 			break;
 	}
-	std::cout << "DID DMA2 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DID DMA2 transfer\n";
 	clear_bit(ch.chcr, CHCR_START_TRANSFER);
 }
 
 void DMA::do_dma3_transfer() {
-	std::cout << "DOING DMA3 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DOING DMA3 transfer\n";
 	clear_bit(channels[3].chcr, CHCR_START_TRANSFER);
 }
 
 void DMA::do_dma4_transfer() {
-	std::cout << "DOING DMA4 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DOING DMA4 transfer\n";
 	clear_bit(channels[4].chcr, CHCR_START_TRANSFER);
 }
 
 void DMA::do_dma5_transfer() {
-	std::cout << "DOING DMA5 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DOING DMA5 transfer\n";
 	clear_bit(channels[5].chcr, CHCR_START_TRANSFER);
 }
 
@@ -136,7 +136,7 @@ void DMA::do_dma6_transfer() {
 		memory->write32(address, header);
 		address -= 4;
 	}
-	std::cout << "DID DMA6 transfer\n";
+	if constexpr (SHOW_LOGS) std::cout << "DID DMA6 transfer\n";
 	clear_bit(ch.chcr, CHCR_START_TRANSFER);
 }
 

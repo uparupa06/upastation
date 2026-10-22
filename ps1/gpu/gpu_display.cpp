@@ -141,7 +141,7 @@ void GPU::sdl_loop() {
 		switch (event.type) {
 			case SDL_EVENT_QUIT:
 			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-				std::cout << "WINDOW CLOSED\n";
+				if constexpr (SHOW_LOGS) std::cout << "WINDOW CLOSED\n";
 				main_window_closed = true;
 				vram_viewer_closed = true;
 				break;

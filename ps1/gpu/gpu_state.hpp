@@ -114,8 +114,8 @@ struct Polygon {
 	uint8_t max_verts = 0;
 
 	// CLUT (updated in first UV word, most significant half-word)
-	uint8_t CLX = 0;
-	uint8_t CLY = 0;
+	uint16_t CLX = 0;
+	uint16_t CLY = 0;
 
 	// TPage (updated in second UV word, most significant half-word)
 
