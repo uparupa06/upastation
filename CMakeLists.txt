@@ -52,6 +52,11 @@ add_executable(upastation
     ps1/test_handler/test_handler.hpp
     ps1/test_handler/test_memory.hpp
 
+    ps1/timers/timer_manager.hpp
+    ps1/timers/timer_manager.cpp
+    ps1/timers/timer_manager_rw.cpp
+    ps1/timers/timer_ext.cpp
+
     nlohmann/json.hpp
 )
 
@@ -66,6 +71,7 @@ target_include_directories(upastation PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ps1/ps1
     ${CMAKE_CURRENT_SOURCE_DIR}/ps1/gpu
     ${CMAKE_CURRENT_SOURCE_DIR}/ps1/test_handler
+    ${CMAKE_CURRENT_SOURCE_DIR}/ps1/timers
     ${CMAKE_CURRENT_SOURCE_DIR}/nlohmann
 )
 

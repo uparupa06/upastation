@@ -16,7 +16,7 @@ void GPU::receive_command(uint32_t value) {
 		case 0b111:
 			break;
 		default:
-			std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n" << std::hex << std::setw(3) << std::setfill('0') << (int)(value >> 29);
+			if constexpr (SHOW_LOGS) std::cout << "(POSSIBLE) UNHANDLED TOP 3 BITS FOR GP0 COMMAND\n" << std::hex << std::setw(3) << std::setfill('0') << (int)(value >> 29);
 			break;
 	}
 
@@ -65,8 +65,10 @@ void GPU::receive_command(uint32_t value) {
 			return;
 
 		default:
-			std::cout << "(POSSIBLE) UNHANDLED TOP 2 BYTES FOR GP0 COMMAND\n";
-			std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(value >> 24) << "\n";
+			if constexpr (SHOW_LOGS) {
+				std::cout << "(POSSIBLE) UNHANDLED TOP 2 BYTES FOR GP0 COMMAND\n";
+				std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(value >> 24) << "\n";
+			}
 			return;
 	}
 }
@@ -566,7 +568,7 @@ uint32_t GPU::gp1_read() {
 	/*gp1 =  (TBX << 0)   | (TBY << 4)  | (ABR  << 5)  | (TPF  << 7)  | (DTD  << 9)  | (DFE << 10)  |
 	       (PBW << 11)  | (PBC << 12) | (~IRS << 13) | (REV  << 14) | (TBY2 << 15) | (HDS2 << 16) | (HDS << 17) | (VDS << 19) | (NPB << 20) | (LBS << 21) | (IRS << 22) |
 	       (DMSK << 23) | (IRQ << 24) | (DREQ() << 25) | (IDLE << 26) | (RFFL << 27) | (WFEP << 28) | (DMD << 29) | (ODE << 31);
-	std::cout << std::hex << std::setfill('0') << std::setw(8) << (int)gp1 << "\n";
+	if constexpr (SHOW_LOGS) std::cout << std::hex << std::setfill('0') << std::setw(8) << (int)gp1 << "\n";
 	return gp1;*/
 }
 

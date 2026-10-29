@@ -6,7 +6,7 @@
 // SEARCH 'FOR LATER' TO FIND COPROCESSOR OPCODES (ONLY REMAINING ONES TO BE IMPLEMENTED)
 // ALL branch_pc() + 4 might be incorrect
 
-constexpr bool SHOW_PUTCHAR = false;
+constexpr bool SHOW_PUTCHAR = true;
 
 MIPS::MIPS() {
 	cop0.connect_mips(this);
@@ -63,6 +63,7 @@ void MIPS::tick_component() {
  	
  	// TEMPORARY FOR NOW
 	if (mips_tick >= 564500) {
+		frames++;
 		sdl_loop();
 		mips_tick = 0;
 	}
@@ -96,6 +97,7 @@ void MIPS::initialise() {
 	i_cycle = 0;
 	cycle = 0;
 	mips_tick = 0;
+	frames = 0;
 }
 
 void MIPS::end() {

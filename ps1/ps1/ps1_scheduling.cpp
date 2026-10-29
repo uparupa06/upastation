@@ -1,10 +1,14 @@
 #include "ps1.hpp"
+#include <chrono>
 
-const std::string exe = "MemoryTransfer16BPP.exe";
+const std::string exe = "RenderPolygon/RenderPolygon16BPP.exe";
 
 void PS1::run() {
 	initialise();
 	mips.initialise_components();
+
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
 	if constexpr (SIDELOAD_EXE) {
 		while (mips.ps1_pc_fetch() != 0x80030000 && mips.running()) {
 			do_tick();
@@ -16,6 +20,13 @@ void PS1::run() {
 	while (mips.running()) {
 		do_tick();
 	}
+
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+	int frames = mips.get_frames();
+
+	float fps = (float)frames / (float)(std::chrono::duration_cast<std::chrono::seconds>(end - begin).count());
+	std::cout << "FPS " << (int)fps << "\n";
 }
 
 void PS1::initialise() {
@@ -27,6 +38,8 @@ void PS1::do_tick() {
 	// NOTE TO SELF: OVERFLOW CAUSED ISSUE WITH SCHEDULING HERE!
 	// NEED TO CREATE A MORE COMPLICATED SCHEDULING SYSTEM...
 	mips.tick_component();
+	mips.tick_timers();
+	mips.tick_timers();
 	// BASIC SOLUTION FOR NOW!
 
 }

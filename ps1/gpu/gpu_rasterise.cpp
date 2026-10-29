@@ -115,6 +115,82 @@ void dither_16(uint16_t& c, int8_t dither) {
 	}
 }
 
+uint16_t apply_semi_transparency(uint16_t B, uint16_t F, uint8_t ABR) {
+	uint8_t b_r =         B & 0x1F;
+	uint8_t b_g = (B >> 5)  & 0x1F;
+	uint8_t b_b = (B >> 10) & 0x1F;
+
+	uint8_t f_r =         F & 0x1F;
+	uint8_t f_g = (F >> 5)  & 0x1F;
+	uint8_t f_b = (F >> 10) & 0x1F;
+
+	switch (ABR) {
+		case 0:
+			b_r /= 2; b_g /= 2; b_b /= 2;
+			f_r /= 2; f_g /= 2; f_b /= 2;
+			b_r += f_r; b_g += f_g; b_b += f_b;
+			break;
+		case 1:
+			if (b_r + f_r > 0x1F) {
+				b_r = 0x1F;
+			} else {
+				b_r += f_r;
+			}
+			if (b_g + f_g > 0x1F) {
+				b_g = 0x1F;
+			} else {
+				b_g += f_g;
+			}
+			if (b_b + f_b > 0x1F) {
+				b_b = 0x1F;
+			} else {
+				b_b += f_b;
+			}
+			break;
+		case 2:
+			if ((int)b_r - (int)f_r < 0x00) {
+				b_r = 0x00;
+			} else {
+				b_r -= f_r;
+			}
+			if ((int)b_g + (int)f_g < 0x00) {
+				b_g = 0x00;
+			} else {
+				b_g -= f_g;
+			}
+			if ((int)b_b + (int)f_b < 0x00) {
+				b_b = 0x00;
+			} else {
+				b_b -= f_b;
+			}
+			break;
+		case 3:
+			f_r /= 4; f_g /= 4; f_b /= 4;
+			if (b_r + f_r > 0x1F) {
+				b_r = 0x1F;
+			} else {
+				b_r += f_r;
+			}
+			if (b_g + f_g > 0x1F) {
+				b_g = 0x1F;
+			} else {
+				b_g += f_g;
+			}
+			if (b_b + f_b > 0x1F) {
+				b_b = 0x1F;
+			} else {
+				b_b += f_b;
+			}
+			break;
+		default:
+			break;
+	}
+
+	uint16_t pixel = ((b_b & 0x1F) << 10) | ((b_g & 0x1F) << 5) | (b_r & 0x1F);
+
+	return pixel;
+}
+
 void GPU::rasterise_triangle(Vertex a, Vertex b, Vertex c) {
 	Weights w;
 
@@ -204,7 +280,12 @@ void GPU::rasterise_triangle(Vertex a, Vertex b, Vertex c) {
 						pixel = ((col_b & 0x1F) << 10) | ((col_g & 0x1F) << 5) | (col_r & 0x1F);
 					}
 					if (pixel) {
-						vram[p.y][p.x] = pixel;
+						uint16_t& B = vram[p.y][p.x];
+						if (polygon.ABE) {
+							B = apply_semi_transparency(B, pixel, ABR);
+						} else {
+							B = pixel;
+						}
 					}
 				}
 			}

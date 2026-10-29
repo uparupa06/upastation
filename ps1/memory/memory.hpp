@@ -10,6 +10,7 @@
 #include "utility.hpp"
 #include "dma.hpp"
 #include "gpu.hpp"
+#include "timer_manager.hpp"
 
 /*
 TO-DO:
@@ -216,8 +217,12 @@ public:
 			default:
 				break;
 		}
-		if ((addr & 0xFFFFFF00) == 0x1F801000) {
+		uint32_t masked_addr = (addr & 0xFFFFFF00);
+		if (masked_addr == 0x1F801000) {
 			return read_dma(addr);
+		}
+		if (masked_addr == 0x1F801100 && addr <= 0x1F801128) {
+			return timer_manager.timer_read(addr);
 		}
 		uint32_t value = uint32_t(read8(addr));
 		R_PAUSE_IF_EXCEPTION
@@ -270,8 +275,13 @@ public:
 			default:
 				break;
 		}
-		if ((addr & 0xFFFFFF00) == 0x1F801000) {
+		uint32_t masked_addr = (addr & 0xFFFFFF00);
+		if (masked_addr == 0x1F801000) {
 			write_dma(addr, value);
+			return;
+		}
+		if (masked_addr == 0x1F801100 && addr <= 0x1F801128) {
+			timer_manager.timer_write(addr, value);
 			return;
 		}
 		write8(addr, value & 0xFF);
@@ -374,6 +384,10 @@ public:
 	void initialise() {
 		gpu.initialise();
 	}
+
+	void tick_timers() {
+		timer_manager.tick_timers();
+	}
 	
 private:
 
@@ -403,6 +417,7 @@ private:
 	// DMA and other components
 	DMA dma;
 	GPU gpu;
+	TimerManager timer_manager;
 
 };
 

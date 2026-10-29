@@ -194,6 +194,14 @@ public:
 	DMA* get_dma() {
 		return memory.get_dma();
 	}
+
+	int get_frames() {
+		return frames;
+	}
+
+	void tick_timers() {
+		memory.tick_timers();
+	}
 	
 private:
 
@@ -249,4 +257,7 @@ private:
 
 	// For exception
 	CpuException exception = { 0, 0, false };
+
+	// Temporary
+	int frames = 0;
 };

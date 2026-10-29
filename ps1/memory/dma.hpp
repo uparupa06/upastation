@@ -24,8 +24,25 @@ public:
 		dma_tick = 0;
 	}
 
-	void set_dmaddr(uint32_t value, int chnum)  { channels[chnum].addr = value; if constexpr (SHOW_LOGS) std::cout << "DMA Channel " << (int)chnum << " ADDR WRITE "; log_32(channels[chnum].addr); if constexpr (SHOW_LOGS) std::cout << "\n"; do_dma(); }
-	void set_dmabcr(uint32_t value, int chnum)  { channels[chnum].bcr = value;  if constexpr (SHOW_LOGS) std::cout << "DMA Channel " << (int)chnum << " BCR  WRITE "; log_32(channels[chnum].bcr);  if constexpr (SHOW_LOGS) std::cout << "\n"; do_dma(); }
+	void set_dmaddr(uint32_t value, int chnum)  {
+		channels[chnum].addr = value;
+		if constexpr (SHOW_LOGS) {		
+			std::cout << "DMA Channel " << (int)chnum << " ADDR WRITE ";
+			log_32(channels[chnum].addr);
+			std::cout << "\n";
+		}
+		do_dma(); 
+	}
+
+	void set_dmabcr(uint32_t value, int chnum) {
+		channels[chnum].bcr = value;
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DMA Channel " << (int)chnum << " BCR  WRITE ";
+			log_32(channels[chnum].bcr);
+			std::cout << "\n";
+		}
+		do_dma();
+	}
 	
 	void set_dmachcr(uint32_t value, int chnum) {
 		if (chnum == 6) {
@@ -41,15 +58,70 @@ public:
 		do_dma();
 	}
 
-	uint32_t get_dmaddr(int chnum)  { if constexpr (SHOW_LOGS) std::cout << "DMA Channel " << (int)chnum << " ADDR READ "; log_32(channels[chnum].addr); std::cout << "\n"; return channels[chnum].addr; }
-	uint32_t get_dmabcr(int chnum)  { if constexpr (SHOW_LOGS) std::cout << "DMA Channel " << (int)chnum << " BCR  READ "; log_32(channels[chnum].bcr);  std::cout << "\n"; return channels[chnum].bcr;  }
-	uint32_t get_dmachcr(int chnum) { if constexpr (SHOW_LOGS) std::cout << "DMA Channel " << (int)chnum << " ADDR READ "; log_32(channels[chnum].chcr); std::cout << "\n"; return channels[chnum].chcr; }
+	uint32_t get_dmaddr(int chnum)  {
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DMA Channel " << (int)chnum << " ADDR READ ";
+			log_32(channels[chnum].addr);
+			std::cout << "\n";
+		}
+		return channels[chnum].addr;
+	}
 
-	void set_dpcr(uint32_t value) { dpcr = value; std::cout << "DPCR WRITE "; log_32(dpcr); std::cout << "\n"; do_dma(); }
-	void set_dicr(uint32_t value) { dicr = value; std::cout << "DICR WRITE "; log_32(dicr); std::cout << "\n"; do_dma(); }
+	uint32_t get_dmabcr(int chnum)  {
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DMA Channel " << (int)chnum << " BCR  READ "; 
+			log_32(channels[chnum].bcr);
+			std::cout << "\n";
+		}
+		return channels[chnum].bcr; 
+	}
 
-	uint32_t get_dpcr() { std::cout << "DPCR READ "; log_32(dpcr); std::cout << "\n"; return dpcr; }
-	uint32_t get_dicr() { std::cout << "DICR READ "; log_32(dpcr); std::cout << "\n"; return dicr; }
+	uint32_t get_dmachcr(int chnum) {
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DMA Channel " << (int)chnum << " ADDR READ ";
+			log_32(channels[chnum].chcr);
+			std::cout << "\n";
+		}
+		return channels[chnum].chcr;
+	}
+
+	void set_dpcr(uint32_t value) {
+		dpcr = value;
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DPCR WRITE ";
+			log_32(dpcr);
+			std::cout << "\n";
+		}
+		do_dma(); 
+	}
+
+	void set_dicr(uint32_t value) {
+		dicr = value;
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DICR WRITE ";
+			log_32(dicr);
+			std::cout << "\n";
+		}
+		do_dma();
+	}
+
+	uint32_t get_dpcr() {
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DPCR READ ";
+			log_32(dpcr);
+			std::cout << "\n";
+		}
+		return dpcr;
+	}
+
+	uint32_t get_dicr() {
+		if constexpr (SHOW_LOGS) {
+			std::cout << "DICR READ ";
+			log_32(dpcr);
+			std::cout << "\n";
+		}
+		return dicr;
+	}
 
 	void connect_gpu(GPU* gpu) {
 		this->gpu = gpu;
